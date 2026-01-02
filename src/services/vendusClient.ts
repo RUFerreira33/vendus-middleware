@@ -15,18 +15,10 @@ export class VendusClient {
     this.apiKey = cfg.VENDUS_API_KEY;
   }
 
-  private authHeaderBasic() {
-    // Docs: Basic Auth com api_key como user (password vazia) :contentReference[oaicite:1]{index=1}
+  private basicAuthHeader() {
+    // Basic Auth: api_key como user, password vazia :contentReference[oaicite:3]{index=3}
     const token = Buffer.from(`${this.apiKey}:`, "utf8").toString("base64");
     return `Basic ${token}`;
-  }
-
-  private headers(extra?: Record<string, string>) {
-    return {
-      "Authorization": this.authHeaderBasic(),
-      "Accept": "application/json",
-      ...(extra || {})
-    };
   }
 
   private async handle<T>(res: Response): Promise<T> {
@@ -37,54 +29,33 @@ export class VendusClient {
       throw new ApiError(res.status, "Vendus API error", j ?? text);
     }
 
-    // A Vendus pode devolver objeto direto ou envelope; aqui devolvemos o JSON como vem
-    return (j as T);
+    return j as T;
   }
 
   async get<T>(path: string): Promise<T> {
-    const url = `${this.baseUrl}${path}`;
-    const res = await fetch(url, {
+    const res = await fetch(`${this.baseUrl}${path}`, {
       method: "GET",
-      headers: this.headers({ "Content-Type": "application/json" })
+      headers: {
+        "Authorization": this.basicAuthHeader(),
+        "Accept": "application/json"
+      }
     });
     return this.handle<T>(res);
   }
 
   async post<T>(path: string, body: unknown): Promise<T> {
-    const url = `${this.baseUrl}${path}`;
-
     const content = JSON.stringify(body ?? {});
-    if (content === "{}") {
-      // evita mandar vazio sem querer
-      throw new ApiError(400, "Empty body when calling Vendus");
-    }
-
-    const res = await fetch(url, {
+    const res = await fetch(`${this.baseUrl}${path}`, {
       method: "POST",
-      headers: this.headers({
+      headers: {
+        "Authorization": this.basicAuthHeader(),
+        "Accept": "application/json",
         "Content-Type": "application/json",
-        // alguns servidores (incl. Vendus) comportam-se melhor com Content-Length explícito :contentReference[oaicite:2]{index=2}
+        // como no exemplo da doc :contentReference[oaicite:4]{index=4}
         "Content-Length": String(Buffer.byteLength(content, "utf8"))
-      }),
+      },
       body: content
     });
-
-    return this.handle<T>(res);
-  }
-
-  async patch<T>(path: string, body: unknown): Promise<T> {
-    const url = `${this.baseUrl}${path}`;
-    const content = JSON.stringify(body ?? {});
-
-    const res = await fetch(url, {
-      method: "PATCH",
-      headers: this.headers({
-        "Content-Type": "application/json",
-        "Content-Length": String(Buffer.byteLength(content, "utf8"))
-      }),
-      body: content
-    });
-
     return this.handle<T>(res);
   }
 }
