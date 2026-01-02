@@ -1,0 +1,103 @@
+openapi: 3.0.3
+info:
+  title: Vendus Middleware
+  version: 1.0.0
+servers:
+  - url: https://YOUR-VERCEL-DOMAIN
+paths:
+  /health:
+    get:
+      summary: Health check
+      security:
+        - ApiKeyAuth: []
+      responses:
+        "200":
+          description: OK
+
+  /products:
+    get:
+      summary: List products (proxy Vendus)
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - in: query
+          name: q
+          schema: { type: string }
+        - in: query
+          name: reference
+          schema: { type: string }
+        - in: query
+          name: barcode
+          schema: { type: string }
+        - in: query
+          name: per_page
+          schema: { type: integer }
+        - in: query
+          name: page
+          schema: { type: integer }
+      responses:
+        "200":
+          description: OK
+
+  /products/{id}:
+    get:
+      summary: Get product by id
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: OK
+
+  /clients:
+    get:
+      summary: List clients (proxy Vendus)
+      security:
+        - ApiKeyAuth: []
+      responses:
+        "200":
+          description: OK
+    post:
+      summary: Create client if not exists
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [nome]
+              properties:
+                nome: { type: string }
+                email: { type: string }
+                telefone: { type: string }
+                nif: { type: string }
+      responses:
+        "200":
+          description: OK
+
+  /clients/{id}:
+    get:
+      summary: Get client by id
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: OK
+
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: x-api-key
