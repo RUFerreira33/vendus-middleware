@@ -6,7 +6,7 @@ import { supabaseAnon } from "../services/supabaseAnon.js";
 
 export const authRouter = Router();
 const clients = new ClientsService();
-const accounts = new AccountsService();
+const accounts = () => new AccountsService();
 
 /**
  * POST /auth/register
@@ -27,7 +27,7 @@ authRouter.post("/register", asyncHandler(async (req, res) => {
   const vendusClientId = r.clientId;
 
   // 2) Supabase: cria user + guarda link
-  const acc = await accounts.createUserAndLink({ email, password, vendusClientId });
+  const acc = await accounts().createUserAndLink({ email, password, vendusClientId });
 
   return res.json({
     ok: true,

@@ -20,4 +20,8 @@ app.use("/me", requireSupabaseJwt, meRouter);
 app.use(requireInternalKey);
 app.use("/", routes);
 
+import { debugRouter } from "./routes/debug.js";
+app.use("/debug", debugRouter);
+
+
 app.use(errorHandler);
