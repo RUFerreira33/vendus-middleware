@@ -13,7 +13,8 @@ type VendusDocListItem = {
   store_id?: number;
   register_id?: number;
   external_reference?: string;
-  client_id?: number; 
+  client_id?: number;
+  client?: { id?: number };
 };
 
 type CreateOrderInput = {
@@ -77,7 +78,7 @@ export class OrdersService {
       store_id: d.store_id ?? null,
       register_id: d.register_id ?? null,
       external_reference: d.external_reference ?? "",
-      client_id: d.client_id ?? null, 
+      client_id: d.client_id ?? d.client?.id ?? null
     }));
   }
 
