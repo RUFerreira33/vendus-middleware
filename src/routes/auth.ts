@@ -31,13 +31,9 @@ authRouter.post("/register", asyncHandler(async (req, res) => {
     return res.status(400).json({ ok: false, error: "password é obrigatório" });
   }
 
-  // ✅ AQUI ESTÁ A CORREÇÃO
-  if (!nif) {
-    return res.status(400).json({
-      ok: false,
-      error: "nif é obrigatório para criar clientes na Vendus"
-    });
-  }
+  if (!telefone && !nif) {
+  return res.status(400).json({ ok: false, error: "telefone ou nif é obrigatório" });
+}
 
   // 1) Vendus: cria ou encontra cliente
   const r = await clients.createIfNotExists({ nome, email, telefone, nif });

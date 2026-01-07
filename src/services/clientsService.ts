@@ -48,9 +48,7 @@ export class ClientsService {
       `/clients/${encodeURIComponent(id)}/`
     );
 
-    if (!c?.id) {
-      throw new ApiError(404, "Cliente não encontrado na Vendus");
-    }
+    if (!c?.id) throw new ApiError(404, "Cliente não encontrado na Vendus");
 
     return {
       id: c.id,
@@ -61,24 +59,14 @@ export class ClientsService {
     };
   }
 
-  async createIfNotExists(input: {
-    nome: string;
-    email?: string;
-    telefone?: string;
-    nif?: string;
-  }) {
+  async createIfNotExists(input: { nome: string; email?: string; telefone?: string; nif?: string }) {
     const nome = (input.nome ?? "").trim();
     const email = (input.email ?? "").trim();
     const telefone = (input.telefone ?? "").trim();
     const nif = (input.nif ?? "").trim();
 
-    if (!nome) {
-      throw new ApiError(400, "Campo 'nome' é obrigatório.");
-    }
-
-    if (!telefone && !nif) {
-      throw new ApiError(400, "Campo 'telefone' ou 'nif' é obrigatório.");
-    }
+    if (!nome) throw new ApiError(400, "Campo 'nome' é obrigatório.");
+    if (!telefone && !nif) throw new ApiError(400, "Campo 'telefone' ou 'nif' é obrigatório.");
 
     let candidates: VendusClientType[] = [];
 
@@ -95,13 +83,10 @@ export class ClientsService {
     }
 
     const existing = candidates.find(c =>
-      (telefone && c.phone === telefone) ||
-      (nif && c.fiscal_id === nif)
+      (telefone && c.phone === telefone) || (nif && c.fiscal_id === nif)
     );
 
-    if (existing?.id) {
-      return { clientId: existing.id, created: false };
-    }
+    if (existing?.id) return { clientId: existing.id, created: false };
 
     const payload: Record<string, string> = {
       name: nome,
@@ -115,17 +100,11 @@ export class ClientsService {
     if (telefone) payload.phone = telefone;
     if (nif && isValidPTNif(nif)) payload.fiscal_id = nif;
 
-    const created = await this.vendus.post<VendusClientType>(
-      `/clients`,
-      payload
-    );
+    // ✅ barra final: /clients/
+    const created = await this.vendus.post<VendusClientType>(`/clients/`, payload);
 
     if (!created?.id) {
-      throw new ApiError(
-        502,
-        "Resposta inválida da Vendus ao criar cliente",
-        created
-      );
+      throw new ApiError(502, "Resposta inválida da Vendus ao criar cliente", created);
     }
 
     return { clientId: created.id, created: true };

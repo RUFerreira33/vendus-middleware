@@ -5,6 +5,10 @@ function safeJson(text: string) {
   try { return JSON.parse(text); } catch { return null; }
 }
 
+type VendusErrorShape = {
+  errors?: Array<{ code?: string; message?: string }>;
+};
+
 export class VendusClient {
   private baseUrl: string;
   private apiKey: string;
@@ -16,53 +20,65 @@ export class VendusClient {
   }
 
   private basicAuthHeader() {
-    // Basic Auth: api_key como user, password vazia :contentReference[oaicite:3]{index=3}
     const token = Buffer.from(`${this.apiKey}:`, "utf8").toString("base64");
     return `Basic ${token}`;
   }
 
-  private async handle<T>(res: Response): Promise<T> {
+  private normalizePath(path: string) {
+    if (!path.startsWith("/")) return `/${path}`;
+    return path;
+  }
+
+  private async handle<T>(res: Response, info?: { method: string; url: string }): Promise<T> {
     const text = await res.text();
     const j = text ? safeJson(text) : null;
 
     if (!res.ok) {
-      throw new ApiError(res.status, "Vendus API error", j ?? text);
+      const vendusMsg =
+        (j as VendusErrorShape | null)?.errors?.[0]?.message ||
+        res.statusText ||
+        "Vendus API error";
+
+      throw new ApiError(
+        res.status,
+        `Vendus API error: ${vendusMsg}`,
+        { url: info?.url, method: info?.method, response: j ?? text }
+      );
     }
 
-    return j as T;
+    // se vier vazio, devolve null (evita crash)
+    return (j as T) ?? (null as T);
   }
 
   async get<T>(path: string): Promise<T> {
-    const res = await fetch(`${this.baseUrl}${path}`, {
+    const p = this.normalizePath(path);
+    const url = `${this.baseUrl}${p}`;
+
+    const res = await fetch(url, {
       method: "GET",
       headers: {
         "Authorization": this.basicAuthHeader(),
         "Accept": "application/json"
       }
     });
-    return this.handle<T>(res);
+
+    return this.handle<T>(res, { method: "GET", url });
   }
 
- async post<T>(path: string, body: Record<string, string>): Promise<T> {
-  const params = new URLSearchParams();
+  async post<T>(path: string, body: unknown): Promise<T> {
+    const p = this.normalizePath(path);
+    const url = `${this.baseUrl}${p}`;
 
-  for (const [key, value] of Object.entries(body)) {
-    if (value !== undefined && value !== null) {
-      params.append(key, String(value));
-    }
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Authorization": this.basicAuthHeader(),
+        "Accept": "application/json",
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(body ?? {})
+    });
+
+    return this.handle<T>(res, { method: "POST", url });
   }
-
-  const res = await fetch(`${this.baseUrl}${path}`, {
-    method: "POST",
-    headers: {
-      "Authorization": this.basicAuthHeader(),
-      "Accept": "application/json",
-      "Content-Type": "application/x-www-form-urlencoded"
-    },
-    body: params.toString()
-  });
-
-  return this.handle<T>(res);
-}
-
 }
