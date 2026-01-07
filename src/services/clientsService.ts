@@ -26,10 +26,7 @@ export class ClientsService {
   constructor(private vendus = new VendusClient()) {}
 
   async list(queryString = "") {
-    const rows = await this.vendus.get<VendusClientType[]>(
-      `/clients/${queryString}`
-    );
-
+    const rows = await this.vendus.get<VendusClientType[]>(`/clients/${queryString}`);
     const arr = Array.isArray(rows) ? rows : [];
 
     return arr.map(c => ({
@@ -44,10 +41,7 @@ export class ClientsService {
   async getById(id: string) {
     if (!id) throw new ApiError(400, "Missing id");
 
-    const c = await this.vendus.get<VendusClientType>(
-      `/clients/${encodeURIComponent(id)}/`
-    );
-
+    const c = await this.vendus.get<VendusClientType>(`/clients/${encodeURIComponent(id)}/`);
     if (!c?.id) throw new ApiError(404, "Cliente não encontrado na Vendus");
 
     return {
@@ -59,7 +53,35 @@ export class ClientsService {
     };
   }
 
+  // ✅ extrai code/message do erro exatamente como a VendusClient está a mandar (details.response.errors[0])
+  private getVendusErrorInfo(e: any): { status?: number; code?: string; message?: string } {
+    const status = e?.status ?? e?.statusCode ?? e?.response?.status;
+    const code = e?.details?.response?.errors?.[0]?.code ?? e?.details?.errors?.[0]?.code;
+    const message = e?.details?.response?.errors?.[0]?.message ?? e?.details?.errors?.[0]?.message;
+    return { status, code, message };
+  }
+
+  private async fetchCandidates(url: string): Promise<VendusClientType[]> {
+    try {
+      const res = await this.vendus.get<VendusClientType[]>(url);
+      return Array.isArray(res) ? res : [];
+    } catch (e: any) {
+      const info = this.getVendusErrorInfo(e);
+
+      // ✅ ESTE É O TEU CASO: 404 + A001 + "No data" => significa "0 resultados"
+      if (info.status === 404 && info.code === "A001" && info.message === "No data") {
+        return [];
+      }
+
+      // qualquer outro erro é real
+      throw e;
+    }
+  }
+
   async createIfNotExists(input: { nome: string; email?: string; telefone?: string; nif?: string }) {
+    // 🔥 marcador para confirmares nos logs que esta versão está ativa
+    console.log("[ClientsService] createIfNotExists v3 (A001->[])");
+
     const nome = (input.nome ?? "").trim();
     const email = (input.email ?? "").trim();
     const telefone = (input.telefone ?? "").trim();
@@ -68,18 +90,12 @@ export class ClientsService {
     if (!nome) throw new ApiError(400, "Campo 'nome' é obrigatório.");
     if (!telefone && !nif) throw new ApiError(400, "Campo 'telefone' ou 'nif' é obrigatório.");
 
+    // 1) procurar existentes
     let candidates: VendusClientType[] = [];
-
     if (nif) {
-      const res = await this.vendus.get<VendusClientType[]>(
-        `/clients/?fiscal_id=${encodeURIComponent(nif)}`
-      );
-      candidates = Array.isArray(res) ? res : [];
+      candidates = await this.fetchCandidates(`/clients/?fiscal_id=${encodeURIComponent(nif)}`);
     } else if (telefone) {
-      const res = await this.vendus.get<VendusClientType[]>(
-        `/clients/?q=${encodeURIComponent(telefone)}`
-      );
-      candidates = Array.isArray(res) ? res : [];
+      candidates = await this.fetchCandidates(`/clients/?q=${encodeURIComponent(telefone)}`);
     }
 
     const existing = candidates.find(c =>
@@ -88,6 +104,7 @@ export class ClientsService {
 
     if (existing?.id) return { clientId: existing.id, created: false };
 
+    // 2) criar
     const payload: Record<string, string> = {
       name: nome,
       country: "PT",
@@ -100,7 +117,6 @@ export class ClientsService {
     if (telefone) payload.phone = telefone;
     if (nif && isValidPTNif(nif)) payload.fiscal_id = nif;
 
-    // ✅ barra final: /clients/
     const created = await this.vendus.post<VendusClientType>(`/clients/`, payload);
 
     if (!created?.id) {
