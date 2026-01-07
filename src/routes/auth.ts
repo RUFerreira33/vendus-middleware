@@ -18,16 +18,37 @@ authRouter.post("/register", asyncHandler(async (req, res) => {
   }
 
   const { nome, email, telefone, nif, password } = req.body || {};
-  if (!nome) return res.status(400).json({ ok: false, error: "nome é obrigatório" });
-  if (!email) return res.status(400).json({ ok: false, error: "email é obrigatório" });
-  if (!password) return res.status(400).json({ ok: false, error: "password é obrigatório" });
+
+  if (!nome) {
+    return res.status(400).json({ ok: false, error: "nome é obrigatório" });
+  }
+
+  if (!email) {
+    return res.status(400).json({ ok: false, error: "email é obrigatório" });
+  }
+
+  if (!password) {
+    return res.status(400).json({ ok: false, error: "password é obrigatório" });
+  }
+
+  // ✅ AQUI ESTÁ A CORREÇÃO
+  if (!nif) {
+    return res.status(400).json({
+      ok: false,
+      error: "nif é obrigatório para criar clientes na Vendus"
+    });
+  }
 
   // 1) Vendus: cria ou encontra cliente
   const r = await clients.createIfNotExists({ nome, email, telefone, nif });
   const vendusClientId = r.clientId;
 
   // 2) Supabase: cria user + guarda link
-  const acc = await accounts().createUserAndLink({ email, password, vendusClientId });
+  const acc = await accounts().createUserAndLink({
+    email,
+    password,
+    vendusClientId
+  });
 
   return res.json({
     ok: true,
