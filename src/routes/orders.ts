@@ -37,6 +37,48 @@ ordersRouter.get(
   })
 );
 
+// GET /orders/enriched -> lista encomendas com client_id garantido (robô)
+ordersRouter.get(
+  "/enriched",
+  asyncHandler(async (req, res) => {
+    const params = pickQuery(req, [
+      "store_id",
+      "register_id",
+      "subtype",
+      "since",
+      "until",
+      "q",
+      "external_reference",
+      "status",
+      "mode",
+      "per_page",
+      "page",
+    ]);
+
+    // força sempre type=EC (Encomenda)
+    params["type"] = "EC";
+
+    const qs = toQueryString(params);
+    const orders = await service.list(qs);
+
+    // Enriquecer com client_id vindo do detalhe (order.client.id)
+    const enriched = await Promise.all(
+      orders.map(async (o: any) => {
+        try {
+          const detail = await service.getById(String(o.id));
+          const client_id = detail?.client?.id ?? detail?.client_id ?? null;
+          return { ...o, client_id };
+        } catch {
+          // não falha tudo por 1 pedido; devolve null nesse item
+          return { ...o, client_id: null };
+        }
+      })
+    );
+
+    return res.json({ ok: true, orders: enriched });
+  })
+);
+
 // GET /orders/:id -> detalhe
 ordersRouter.get(
   "/:id",
