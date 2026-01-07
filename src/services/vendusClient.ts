@@ -43,30 +43,24 @@ export class VendusClient {
     return this.handle<T>(res);
   }
 
-  async post<T>(path: string, body: unknown): Promise<T> {
-  const content = JSON.stringify(body ?? {});
-  const url = `${this.baseUrl}${path}`;
+ async post<T>(path: string, body: Record<string, string>): Promise<T> {
+  const params = new URLSearchParams();
 
-  const doFetch = (u: string) =>
-    fetch(u, {
-      method: "POST",
-      redirect: "manual", // ✅ importante para não “converter” POST em GET e perder body
-      headers: {
-        "Authorization": this.basicAuthHeader(),
-        "Accept": "application/json",
-        "Content-Type": "application/json",
-      },
-      body: content
-    });
-
-  let res = await doFetch(url);
-
-  if ([301, 302, 303, 307, 308].includes(res.status)) {
-    const location = res.headers.get("location");
-    if (location) {
-      res = await doFetch(location);
+  for (const [key, value] of Object.entries(body)) {
+    if (value !== undefined && value !== null) {
+      params.append(key, String(value));
     }
   }
+
+  const res = await fetch(`${this.baseUrl}${path}`, {
+    method: "POST",
+    headers: {
+      "Authorization": this.basicAuthHeader(),
+      "Accept": "application/json",
+      "Content-Type": "application/x-www-form-urlencoded"
+    },
+    body: params.toString()
+  });
 
   return this.handle<T>(res);
 }
