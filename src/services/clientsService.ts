@@ -100,7 +100,7 @@ export class ClientsService {
     // só manda fiscal_id se for NIF PT válido (evita rejeições)
     if (nif && isValidPTNif(nif)) payload.fiscal_id = nif;
 
-    const created = await this.vendus.post<VendusClientType>(`/clients/`, payload);
+    const created = await this.vendus.post<VendusClientType>(`/clients/create`, payload);
 
     if (!created?.id) {
       throw new ApiError(502, "Resposta inválida da Vendus ao criar cliente", created);
