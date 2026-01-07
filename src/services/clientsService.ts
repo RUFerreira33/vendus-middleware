@@ -1,7 +1,7 @@
 import { VendusClient } from "./vendusClient.js";
 import { ApiError } from "../errors.js";
 
-type VendusCustomer = {
+type VendusClientType = {
   id: number;
   name?: string;
   email?: string;
@@ -26,8 +26,8 @@ export class ClientsService {
   constructor(private vendus = new VendusClient()) {}
 
   async list(queryString = "") {
-    const rows = await this.vendus.get<VendusCustomer[]>(
-      `/customers/${queryString}`
+    const rows = await this.vendus.get<VendusClientType[]>(
+      `/clients/${queryString}`
     );
 
     const arr = Array.isArray(rows) ? rows : [];
@@ -44,8 +44,8 @@ export class ClientsService {
   async getById(id: string) {
     if (!id) throw new ApiError(400, "Missing id");
 
-    const c = await this.vendus.get<VendusCustomer>(
-      `/customers/${encodeURIComponent(id)}/`
+    const c = await this.vendus.get<VendusClientType>(
+      `/clients/${encodeURIComponent(id)}/`
     );
 
     if (!c?.id) {
@@ -80,17 +80,16 @@ export class ClientsService {
       throw new ApiError(400, "Campo 'telefone' ou 'nif' é obrigatório.");
     }
 
-    // 🔍 Procurar cliente existente
-    let candidates: VendusCustomer[] = [];
+    let candidates: VendusClientType[] = [];
 
     if (nif) {
-      const res = await this.vendus.get<VendusCustomer[]>(
-        `/customers/?fiscal_id=${encodeURIComponent(nif)}`
+      const res = await this.vendus.get<VendusClientType[]>(
+        `/clients/?fiscal_id=${encodeURIComponent(nif)}`
       );
       candidates = Array.isArray(res) ? res : [];
     } else if (telefone) {
-      const res = await this.vendus.get<VendusCustomer[]>(
-        `/customers/?q=${encodeURIComponent(telefone)}`
+      const res = await this.vendus.get<VendusClientType[]>(
+        `/clients/?q=${encodeURIComponent(telefone)}`
       );
       candidates = Array.isArray(res) ? res : [];
     }
@@ -104,7 +103,6 @@ export class ClientsService {
       return { clientId: existing.id, created: false };
     }
 
-    // 🧾 Payload compatível com Vendus UI
     const payload: Record<string, string> = {
       name: nome,
       country: "PT",
@@ -117,8 +115,8 @@ export class ClientsService {
     if (telefone) payload.phone = telefone;
     if (nif && isValidPTNif(nif)) payload.fiscal_id = nif;
 
-    const created = await this.vendus.post<VendusCustomer>(
-      `/customers`,
+    const created = await this.vendus.post<VendusClientType>(
+      `/clients`,
       payload
     );
 
