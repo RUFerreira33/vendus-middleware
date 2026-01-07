@@ -8,7 +8,7 @@ export type Config = {
 function must(name: keyof Config): string {
   const v = process.env[name];
   if (!v) throw new Error(`Missing env var: ${name}`);
-  return v;
+  return v.trim(); // ✅ remove \n e espaços
 }
 
 export function getConfig(): Config {
@@ -16,6 +16,6 @@ export function getConfig(): Config {
     INTERNAL_API_KEY: must("INTERNAL_API_KEY"),
     VENDUS_BASE_URL: must("VENDUS_BASE_URL").replace(/\/+$/, ""),
     VENDUS_API_KEY: must("VENDUS_API_KEY"),
-    ALLOWED_ORIGINS: process.env.ALLOWED_ORIGINS || "*"
+    ALLOWED_ORIGINS: (process.env.ALLOWED_ORIGINS || "*").trim()
   };
 }

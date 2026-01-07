@@ -1,4 +1,3 @@
-// src/services/clientsService.ts
 import { VendusClient } from "./vendusClient.js";
 import { ApiError } from "../errors.js";
 
@@ -10,10 +9,23 @@ type VendusClientType = {
   fiscal_id?: string;
 };
 
+function isValidPTNif(nif: string) {
+  const s = (nif || "").replace(/\D/g, "");
+  if (!/^\d{9}$/.test(s)) return false;
+
+  const digits = s.split("").map(Number);
+  let sum = 0;
+  for (let i = 0; i < 8; i++) sum += digits[i] * (9 - i);
+  const check = 11 - (sum % 11);
+  const checkDigit = check >= 10 ? 0 : check;
+
+  return checkDigit === digits[8];
+}
+
 export class ClientsService {
   constructor(private vendus = new VendusClient()) {}
 
-  async list(queryString: string) {
+  async list(queryString = "") {
     const rows = await this.vendus.get<VendusClientType[]>(`/clients/${queryString}`);
     const arr = Array.isArray(rows) ? rows : [];
 
@@ -30,6 +42,7 @@ export class ClientsService {
     if (!id) throw new ApiError(400, "Missing id");
 
     const c = await this.vendus.get<VendusClientType>(`/clients/${encodeURIComponent(id)}/`);
+    if (!c?.id) throw new ApiError(404, "Cliente não encontrado na Vendus");
 
     return {
       id: c.id,
@@ -40,45 +53,69 @@ export class ClientsService {
     };
   }
 
+  // ✅ extrai code/message do erro exatamente como a VendusClient está a mandar (details.response.errors[0])
+  private getVendusErrorInfo(e: any): { status?: number; code?: string; message?: string } {
+    const status = e?.status ?? e?.statusCode ?? e?.response?.status;
+    const code = e?.details?.response?.errors?.[0]?.code ?? e?.details?.errors?.[0]?.code;
+    const message = e?.details?.response?.errors?.[0]?.message ?? e?.details?.errors?.[0]?.message;
+    return { status, code, message };
+  }
+
+  private async fetchCandidates(url: string): Promise<VendusClientType[]> {
+    try {
+      const res = await this.vendus.get<VendusClientType[]>(url);
+      return Array.isArray(res) ? res : [];
+    } catch (e: any) {
+      const info = this.getVendusErrorInfo(e);
+
+      // ✅ ESTE É O TEU CASO: 404 + A001 + "No data" => significa "0 resultados"
+      if (info.status === 404 && info.code === "A001" && info.message === "No data") {
+        return [];
+      }
+
+      // qualquer outro erro é real
+      throw e;
+    }
+  }
+
   async createIfNotExists(input: { nome: string; email?: string; telefone?: string; nif?: string }) {
+    // 🔥 marcador para confirmares nos logs que esta versão está ativa
+    console.log("[ClientsService] createIfNotExists v3 (A001->[])");
+
     const nome = (input.nome ?? "").trim();
     const email = (input.email ?? "").trim();
     const telefone = (input.telefone ?? "").trim();
     const nif = (input.nif ?? "").trim();
 
-    if (!nome) {
-      throw new ApiError(400, "Campo 'nome' é obrigatório.");
-    }
-    if (!telefone && !nif) {
-      throw new ApiError(400, "Campo 'telefone' ou 'nif' é obrigatório.");
-    }
+    if (!nome) throw new ApiError(400, "Campo 'nome' é obrigatório.");
+    if (!telefone && !nif) throw new ApiError(400, "Campo 'telefone' ou 'nif' é obrigatório.");
 
-    // Procurar candidato por fiscal_id (melhor) ou por pesquisa
+    // 1) procurar existentes
     let candidates: VendusClientType[] = [];
     if (nif) {
-      candidates = await this.vendus.get<VendusClientType[]>(
-        `/clients/?fiscal_id=${encodeURIComponent(nif)}`
-      );
+      candidates = await this.fetchCandidates(`/clients/?fiscal_id=${encodeURIComponent(nif)}`);
     } else if (telefone) {
-      candidates = await this.vendus.get<VendusClientType[]>(
-        `/clients/?q=${encodeURIComponent(telefone)}`
-      );
+      candidates = await this.fetchCandidates(`/clients/?q=${encodeURIComponent(telefone)}`);
     }
 
-    const existing = (candidates || []).find(c =>
+    const existing = candidates.find(c =>
       (telefone && c.phone === telefone) || (nif && c.fiscal_id === nif)
     );
 
-    if (existing) {
-      return { clientId: existing.id, created: false };
-    }
+    if (existing?.id) return { clientId: existing.id, created: false };
 
-    // IMPORTANTE: não enviar strings vazias para a Vendus — omitir campos não presentes
-    const payload: Record<string, string> = { name: nome };
+    // 2) criar
+    const payload: Record<string, string> = {
+      name: nome,
+      country: "PT",
+      send_email: "no",
+      irs_retention: "no",
+      default_pay_due: "now"
+    };
 
-    if (nif) payload.fiscal_id = nif;
-    if (telefone) payload.phone = telefone;
     if (email) payload.email = email;
+    if (telefone) payload.phone = telefone;
+    if (nif && isValidPTNif(nif)) payload.fiscal_id = nif;
 
     const created = await this.vendus.post<VendusClientType>(`/clients/`, payload);
 

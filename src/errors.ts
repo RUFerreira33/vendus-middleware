@@ -7,4 +7,13 @@ export class ApiError extends Error {
     this.status = status;
     this.details = details;
   }
+
+  toJSON() {
+    return {
+      ok: false,
+      error: this.message,
+      status: this.status,
+      details: this.details ?? undefined
+    };
+  }
 }
