@@ -10,6 +10,19 @@ type VendusClientType = {
   fiscal_id?: string;
 };
 
+function isValidPTNif(nif: string) {
+  const s = (nif || "").replace(/\D/g, "");
+  if (!/^\d{9}$/.test(s)) return false;
+
+  const digits = s.split("").map(Number);
+  let sum = 0;
+  for (let i = 0; i < 8; i++) sum += digits[i] * (9 - i);
+  const check = 11 - (sum % 11);
+  const checkDigit = check >= 10 ? 0 : check;
+
+  return checkDigit === digits[8];
+}
+
 export class ClientsService {
   constructor(private vendus = new VendusClient()) {}
 
@@ -46,14 +59,10 @@ export class ClientsService {
     const telefone = (input.telefone ?? "").trim();
     const nif = (input.nif ?? "").trim();
 
-    if (!nome) {
-      throw new ApiError(400, "Campo 'nome' é obrigatório.");
-    }
-    if (!telefone && !nif) {
-      throw new ApiError(400, "Campo 'telefone' ou 'nif' é obrigatório.");
-    }
+    if (!nome) throw new ApiError(400, "Campo 'nome' é obrigatório.");
+    if (!telefone && !nif) throw new ApiError(400, "Campo 'telefone' ou 'nif' é obrigatório.");
 
-    // Procurar candidato por fiscal_id (melhor) ou por pesquisa
+    // procurar existente por fiscal_id (melhor) ou por pesquisa
     let candidates: VendusClientType[] = [];
     if (nif) {
       candidates = await this.vendus.get<VendusClientType[]>(
@@ -69,16 +78,27 @@ export class ClientsService {
       (telefone && c.phone === telefone) || (nif && c.fiscal_id === nif)
     );
 
-    if (existing) {
-      return { clientId: existing.id, created: false };
-    }
+    if (existing) return { clientId: existing.id, created: false };
 
-    // IMPORTANTE: não enviar strings vazias para a Vendus — omitir campos não presentes
-    const payload: Record<string, string> = { name: nome };
+    // ✅ payload sem campos vazios + defaults úteis (mais compatível com a UI)
+    const payload: Record<string, string> & {
+      country?: string;
+      send_email?: "yes" | "no";
+      irs_retention?: "yes" | "no";
+      default_pay_due?: "now" | "30" | "60" | "90";
+    } = {
+      name: nome,
+      country: "PT",
+      send_email: "no",
+      irs_retention: "no",
+      default_pay_due: "now"
+    };
 
-    if (nif) payload.fiscal_id = nif;
-    if (telefone) payload.phone = telefone;
     if (email) payload.email = email;
+    if (telefone) payload.phone = telefone;
+
+    // só manda fiscal_id se for NIF PT válido (evita rejeições)
+    if (nif && isValidPTNif(nif)) payload.fiscal_id = nif;
 
     const created = await this.vendus.post<VendusClientType>(`/clients/`, payload);
 
