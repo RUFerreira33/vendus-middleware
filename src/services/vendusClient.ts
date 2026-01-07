@@ -44,18 +44,31 @@ export class VendusClient {
   }
 
   async post<T>(path: string, body: unknown): Promise<T> {
-    const content = JSON.stringify(body ?? {});
-    const res = await fetch(`${this.baseUrl}${path}`, {
+  const content = JSON.stringify(body ?? {});
+  const url = `${this.baseUrl}${path}`;
+
+  const doFetch = (u: string) =>
+    fetch(u, {
       method: "POST",
+      redirect: "manual", // ✅ importante para não “converter” POST em GET e perder body
       headers: {
         "Authorization": this.basicAuthHeader(),
         "Accept": "application/json",
         "Content-Type": "application/json",
-        // como no exemplo da doc :contentReference[oaicite:4]{index=4}
-        "Content-Length": String(Buffer.byteLength(content, "utf8"))
       },
       body: content
     });
-    return this.handle<T>(res);
+
+  let res = await doFetch(url);
+
+  if ([301, 302, 303, 307, 308].includes(res.status)) {
+    const location = res.headers.get("location");
+    if (location) {
+      res = await doFetch(location);
+    }
   }
+
+  return this.handle<T>(res);
+}
+
 }
