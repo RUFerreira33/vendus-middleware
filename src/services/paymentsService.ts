@@ -1,5 +1,5 @@
 // src/services/paymentsService.ts
-import { VendusClient } from "./vendusClient.js"; 
+/*import { VendusClient } from "./vendusClient.js"; 
 import { ApiError } from "../errors.js";
 
 type PayInvoiceInput = {
@@ -25,7 +25,7 @@ export class PaymentsService {
    * Estratégia A (normal no Vendus): pagar uma fatura criando um recibo (RC)
    * que referencia a fatura (invoiceId).
    */
-  async payInvoiceByReceipt(input: PayInvoiceInput) {
+ /* async payInvoiceByReceipt(input: PayInvoiceInput) {
     const invoiceId = String(input.invoiceId || "").trim();
     if (!invoiceId) throw new ApiError(400, "invoiceId é obrigatório");
 
@@ -87,7 +87,7 @@ export class PaymentsService {
    * Estratégia B: se a vossa API suportar pagamentos diretamente:
    * POST /documents/{id}/payments
    */
-  async payInvoiceByPaymentsEndpoint(input: PayInvoiceInput) {
+  /*async payInvoiceByPaymentsEndpoint(input: PayInvoiceInput) {
     const invoiceId = String(input.invoiceId || "").trim();
     if (!invoiceId) throw new ApiError(400, "invoiceId é obrigatório");
 
@@ -117,3 +117,4 @@ export class PaymentsService {
     return this.vendus.post<any>(`/documents/${encodeURIComponent(invoiceId)}/payments`, payload);
   }
 }
+*/
