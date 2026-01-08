@@ -37,7 +37,7 @@ ordersRouter.get(
   })
 );
 
-// GET /orders/enriched -> lista encomendas com client_id garantido (robô)
+// GET /orders/enriched -> lista encomendas com dados do cliente garantidos (robô)
 ordersRouter.get(
   "/enriched",
   asyncHandler(async (req, res) => {
@@ -61,16 +61,31 @@ ordersRouter.get(
     const qs = toQueryString(params);
     const orders = await service.list(qs);
 
-    // Enriquecer com client_id vindo do detalhe (order.client.id)
+    // Enriquecer com client_id, nome e email vindo do detalhe
     const enriched = await Promise.all(
       orders.map(async (o: any) => {
         try {
           const detail = await service.getById(String(o.id));
+          
+          // Extrair dados do cliente com fallback para evitar erros de null
           const client_id = detail?.client?.id ?? detail?.client_id ?? null;
-          return { ...o, client_id };
+          const client_name = detail?.client?.name ?? "Consumidor Final";
+          const client_email = detail?.client?.email ?? "";
+
+          return { 
+            ...o, 
+            client_id, 
+            client_name, 
+            client_email 
+          };
         } catch {
-          // não falha tudo por 1 pedido; devolve null nesse item
-          return { ...o, client_id: null };
+          // não falha tudo por 1 pedido; devolve nulo ou vazio nesse item
+          return { 
+            ...o, 
+            client_id: null, 
+            client_name: "Erro ao obter detalhe", 
+            client_email: "" 
+          };
         }
       })
     );
@@ -81,7 +96,7 @@ ordersRouter.get(
 
 // GET /orders/:id -> detalhe
 ordersRouter.get(
-  "/:id",
+  "//:id",
   asyncHandler(async (req, res) => {
     const params = pickQuery(req, [
       "mode",
