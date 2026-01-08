@@ -8,7 +8,7 @@ import { routes } from "./routes/index.js";          // rotas internas (health/p
 import { authRouter } from "./routes/auth.js";       // /auth/register e /auth/login
 import { meRouter } from "./routes/me.js";           // /me
 import { requireSupabaseJwt } from "./middlewares/requireSupabaseJWT.js"; // middleware de autenticação Supabase JWT
-import { paymentsRouter } from "./routes/payments.js";
+//import { paymentsRouter } from "./routes/payments.js";
 export const app = express();
 
 app.use(express.json({ limit: "1mb" }));
@@ -24,5 +24,5 @@ app.use("/", routes);
 import { debugRouter } from "./routes/debug.js";
 app.use("/debug", debugRouter);
 
-app.use("/payments", paymentsRouter);
+//app.use("/payments", paymentsRouter);
 app.use(errorHandler);
