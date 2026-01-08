@@ -96,7 +96,7 @@ ordersRouter.get(
 
 // GET /orders/:id -> detalhe
 ordersRouter.get(
-  "//:id",
+  "/:id",
   asyncHandler(async (req, res) => {
     const params = pickQuery(req, [
       "mode",
