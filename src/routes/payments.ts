@@ -1,5 +1,5 @@
 // src/routes/payments.ts
-import { Router } from "express";
+/*import { Router } from "express";
 import { PaymentsService } from "../services/paymentsService";
 
 export const paymentsRouter = Router();
@@ -13,7 +13,7 @@ const service = new PaymentsService();
  *  - "receipt" (default) -> cria recibo (RC)
  *  - "endpoint"          -> chama /documents/:id/payments
  */
-paymentsRouter.post("/invoices/:invoiceId/pay", async (req, res, next) => {
+/*paymentsRouter.post("/invoices/:invoiceId/pay", async (req, res, next) => {
   try {
     const { invoiceId } = req.params;
     const { amount, method, date, notes, strategy } = req.body || {};
@@ -35,4 +35,4 @@ paymentsRouter.post("/invoices/:invoiceId/pay", async (req, res, next) => {
   } catch (err) {
     next(err);
   }
-});
+});*/
