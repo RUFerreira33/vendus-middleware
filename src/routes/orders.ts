@@ -63,7 +63,7 @@ ordersRouter.get(
 
     // Enriquecer com client_id, nome e email vindo do detalhe
     const enriched = await Promise.all(
-      orders.map(async (o: any) => {
+      orders.map(async (o) => {
         try {
           const detail = await service.getById(String(o.id));
           
