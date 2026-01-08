@@ -61,16 +61,21 @@ ordersRouter.get(
     const qs = toQueryString(params);
     const orders = await service.list(qs);
 
-    // Enriquecer com client_id, nome e email vindo do detalhe
     const enriched = await Promise.all(
       orders.map(async (o) => {
         try {
           const detail = await service.getById(String(o.id));
-          
-          // Extrair dados do cliente com fallback para evitar erros de null
-          const client_id = detail?.client?.id ?? detail?.client_id ?? null;
-          const client_name = detail?.client?.name ?? "Consumidor Final";
-          const client_email = detail?.client?.email ?? "";
+          const client_id = detail?.client?.id ?? detail?.client_id ?? o.client_id ?? null;
+          const client_name = detail?.client?.name ?? o.client_name ?? "Consumidor Final";
+          let client_email = detail?.client?.email ?? "";
+
+          if (!client_email && client_id) {
+            try {
+               const clientProfile = await service.vendus.get<any>(`/clients/${client_id}`);
+               client_email = clientProfile?.email ?? "";
+            } catch (err) {
+            }
+          }
 
           return { 
             ...o, 
@@ -82,7 +87,7 @@ ordersRouter.get(
           // não falha tudo por 1 pedido; devolve nulo ou vazio nesse item
           return { 
             ...o, 
-            client_id: null, 
+            client_id: o.client_id ?? null, 
             client_name: "Erro ao obter detalhe", 
             client_email: "" 
           };
