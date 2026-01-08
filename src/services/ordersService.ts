@@ -16,8 +16,8 @@ type VendusDocListItem = {
   client_id?: number;
   client?: { 
     id?: number;
-    name?: string;
-    email?: string;
+    name?: string;  
+    email?: string; 
   };
 };
 
@@ -60,7 +60,7 @@ export class OrdersService {
 
   async list(queryString: string) {
     const query = queryString
-      ? queryString.startsWith("?") ? queryString : `?${queryString}`
+      ? (queryString.startsWith("?") ? queryString : `?${queryString}`)
       : "";
 
     const rows = await this.vendus.get<VendusDocListItem[]>(`/documents${query}`);
@@ -88,7 +88,7 @@ export class OrdersService {
     if (!id) throw new ApiError(400, "Missing id");
     
     const qs = queryString
-      ? queryString.startsWith("?") ? queryString : `?${queryString}`
+      ? (queryString.startsWith("?") ? queryString : `?${queryString}`)
       : "";
     
     return this.vendus.get<any>(`/documents/${encodeURIComponent(id)}${qs}`);
@@ -101,15 +101,13 @@ export class OrdersService {
     }
 
     const clientId = input.client_id ?? input.client?.id;
-    if (!clientId) {
-      throw new ApiError(400, "Campo 'client_id' é obrigatório.");
-    }
+    if (!clientId) throw new ApiError(400, "Campo 'client_id' é obrigatório.");
 
     const payload: any = {
       type: "EC",
       register_id: input.register_id,
       client_id: clientId,
-      items: input.items.map((it) => ({
+      items: input.items.map((it: any) => ({
         qty: it.qty,
         id: it.id,
         reference: it.reference,
@@ -120,8 +118,11 @@ export class OrdersService {
       })),
     };
 
+    if (input.date) payload.date = input.date;
+    if (input.mode) payload.mode = input.mode;
+
     const created = await this.vendus.post<any>(`/documents`, payload);
-    if (!created) throw new ApiError(502, "Erro ao criar encomenda.");
+    if (!created) throw new ApiError(502, "Erro ao criar encomenda no Vendus.");
 
     return created;
   }
