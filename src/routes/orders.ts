@@ -7,6 +7,25 @@ import { supabaseAdmin } from "../services/supabaseAdmin.js";
 export const ordersRouter = Router();
 const service = new OrdersService();
 
+function calcAmountGross(input: any): number | null {
+  if (!input || !Array.isArray(input.items)) return null;
+
+  let total = 0;
+  let found = false;
+
+  for (const it of input.items) {
+    const qty = Number(it.quantity ?? it.qty ?? 1);
+    const price = Number(it.gross_price ?? it.price_gross ?? it.price ?? it.unit_price ?? 0);
+
+    if (Number.isFinite(qty) && Number.isFinite(price)) {
+      total += qty * price;
+      found = true;
+    }
+  }
+
+  return found ? total : null;
+}
+
 /**
  * GET /orders -> lista encomendas (Vendus) (type=EC)
  */
@@ -74,7 +93,7 @@ ordersRouter.get(
 
           if (!client_email && client_id) {
             try {
-              const clientProfile = await service.vendus.get<any>(`/clients/${client_id}`);
+              const clientProfile = await service.vendus.get<any>(`/clients/${client_id}/`);
               client_email = clientProfile?.email ?? "";
             } catch {
               // ignore
@@ -116,7 +135,9 @@ ordersRouter.get(
 ordersRouter.get(
   "/pending",
   asyncHandler(async (_req, res) => {
-    const { data, error } = await supabaseAdmin
+    const admin = supabaseAdmin();
+
+    const { data, error } = await admin
       .from("pending_orders")
       .select("id, created_at, status, client_name, client_email, amount_gross, vendus_document_id")
       .eq("status", "PENDING")
@@ -126,7 +147,7 @@ ordersRouter.get(
       return res.status(502).json({ ok: false, error: "Erro Supabase", details: error.message });
     }
 
-    return res.json({ ok: true, orders: data ?? [] });
+    return res.json({ ok: true, orders or ders: data ?? [] });
   })
 );
 
@@ -139,16 +160,21 @@ ordersRouter.get(
 ordersRouter.post(
   "/pending/:id/accept",
   asyncHandler(async (req, res) => {
+    const admin = supabaseAdmin();
+
     const id = req.params.id;
     const acceptedBy = req.body?.accepted_by ?? "funcionario";
 
-    const { data: pending, error: e1 } = await supabaseAdmin
+    const { data: pending, error: e1 } = await admin
       .from("pending_orders")
       .select("id, status, payload")
       .eq("id", id)
-      .single();
+      .maybeSingle();
 
-    if (e1 || !pending) {
+    if (e1) {
+      return res.status(502).json({ ok: false, error: "Erro Supabase", details: e1.message });
+    }
+    if (!pending) {
       return res.status(404).json({ ok: false, error: "Pedido pendente não encontrado" });
     }
 
@@ -156,10 +182,10 @@ ordersRouter.post(
       return res.status(409).json({ ok: false, error: `Pedido já está em ${pending.status}` });
     }
 
-    // cria no Vendus (AGORA SIM)
+    // cria no Vendus
     const created = await service.create(pending.payload);
 
-    const { error: e2 } = await supabaseAdmin
+    const { error: e2 } = await admin
       .from("pending_orders")
       .update({
         status: "ACCEPTED",
@@ -185,17 +211,22 @@ ordersRouter.post(
 ordersRouter.post(
   "/pending/:id/reject",
   asyncHandler(async (req, res) => {
+    const admin = supabaseAdmin();
+
     const id = req.params.id;
     const rejectedBy = req.body?.rejected_by ?? "funcionario";
     const reason = req.body?.reason ?? null;
 
-    const { data: pending, error: e1 } = await supabaseAdmin
+    const { data: pending, error: e1 } = await admin
       .from("pending_orders")
       .select("id, status")
       .eq("id", id)
-      .single();
+      .maybeSingle();
 
-    if (e1 || !pending) {
+    if (e1) {
+      return res.status(502).json({ ok: false, error: "Erro Supabase", details: e1.message });
+    }
+    if (!pending) {
       return res.status(404).json({ ok: false, error: "Pedido pendente não encontrado" });
     }
 
@@ -203,7 +234,7 @@ ordersRouter.post(
       return res.status(409).json({ ok: false, error: `Pedido já está em ${pending.status}` });
     }
 
-    const { error: e2 } = await supabaseAdmin
+    const { error: e2 } = await admin
       .from("pending_orders")
       .update({
         status: "REJECTED",
@@ -255,7 +286,7 @@ ordersRouter.get(
 );
 
 /**
- * POST /orders -> AGORA: guarda no Supabase como PENDING (não cria no Vendus)
+ * POST /orders -> guarda no Supabase como PENDING (não cria no Vendus)
  */
 ordersRouter.post(
   "/",
@@ -266,7 +297,6 @@ ordersRouter.post(
 
     const input = req.body;
 
-    // validações mínimas
     if (!input?.register_id) {
       return res.status(400).json({ ok: false, error: "Campo 'register_id' é obrigatório." });
     }
@@ -280,7 +310,9 @@ ordersRouter.post(
       return res.status(400).json({ ok: false, error: "O campo 'items' é obrigatório e deve ser uma lista." });
     }
 
-    const { data, error } = await supabaseAdmin
+    const admin = supabaseAdmin();
+
+    const { data, error } = await admin
       .from("pending_orders")
       .insert([
         {
@@ -288,6 +320,7 @@ ordersRouter.post(
           payload: input,
           client_name: input?.client?.name ?? null,
           client_email: input?.client?.email ?? null,
+          amount_gross: calcAmountGross(input),
         },
       ])
       .select("id, status, created_at")
