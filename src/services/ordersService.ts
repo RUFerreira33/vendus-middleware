@@ -59,6 +59,7 @@ export class OrdersService {
   constructor(public vendus = new VendusClient()) {}
 
   async list(queryString: string) {
+    console.log("Listando documentos com query:", queryString);
     const query = queryString
       ? (queryString.startsWith("?") ? queryString : `?${queryString}`)
       : "";
@@ -91,22 +92,53 @@ export class OrdersService {
   }
 
   async create(input: CreateOrderInput) {
-    if (!input?.register_id) throw new ApiError(400, "Campo 'register_id' é obrigatório.");
-    const clientId = input.client_id ?? input.client?.id;
-    if (!clientId) throw new ApiError(400, "Campo 'client_id' é obrigatório.");
+    try {
+      console.log("--- NOVO PEDIDO RECEBIDO DO UIPATH ---");
+      console.log("Payload de entrada:", JSON.stringify(input, null, 2));
 
-    const payload: any = {
-      type: "EC",
-      register_id: input.register_id,
-      client_id: clientId,
-      items: input.items.map((it: any) => ({
-        qty: it.qty, id: it.id, reference: it.reference, price: it.price,
-        discount: it.discount, tax_id: it.tax_id, notes: it.notes
-      })),
-    };
+      if (!input?.register_id) throw new ApiError(400, "Campo 'register_id' é obrigatório.");
+      
+      const clientId = input.client_id ?? input.client?.id;
+      if (!clientId) throw new ApiError(400, "Campo 'client_id' é obrigatório.");
 
-    const created = await this.vendus.post<any>(`/documents`, payload);
-    if (!created) throw new ApiError(502, "Erro ao criar encomenda.");
-    return created;
+      if (!input.items || !Array.isArray(input.items)) {
+        throw new ApiError(400, "O campo 'items' é obrigatório e deve ser uma lista.");
+      }
+
+      const payload: any = {
+        type: "EC", 
+        register_id: input.register_id,
+        client_id: clientId,
+        items: input.items.map((it: any) => ({
+          qty: it.qty, 
+          id: it.id, 
+          reference: it.reference, 
+          price: it.price,
+          discount: it.discount, 
+          tax_id: it.tax_id, 
+          notes: it.notes
+        })),
+      };
+
+      console.log("Enviando para Vendus API:", JSON.stringify(payload, null, 2));
+
+      const created = await this.vendus.post<any>(`/documents`, payload);
+      
+      if (!created) {
+        console.error("Vendus API não devolveu resposta válida.");
+        throw new ApiError(502, "Erro ao criar encomenda no Vendus.");
+      }
+
+      console.log("Sucesso! Documento criado com ID:", created.id);
+      return created;
+
+    } catch (error: any) {
+      console.error("### ERRO INTERNO NO ORDERS SERVICE ###");
+      console.error("Mensagem:", error.message);
+      if (error.response) {
+        console.error("Detalhes da API Vendus:", JSON.stringify(error.response.data, null, 2));
+      }
+      throw error; 
+    }
   }
 }
