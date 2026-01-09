@@ -18,13 +18,11 @@ meRouter.get("/", asyncHandler(async (req, res) => {
 
   const admin = supabaseAdmin();
 
-  // 1) validar token e obter user
   const { data: userData, error: userErr } = await admin.auth.getUser(token);
   if (userErr || !userData?.user) {
     return res.status(401).json({ ok: false, error: "Invalid token", details: userErr ?? undefined });
   }
 
-  // 2) buscar associação (não usar .single)
   const { data, error } = await admin
     .from("customer_accounts")
     .select("vendus_client_id,email,user_id,created_at")

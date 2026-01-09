@@ -35,11 +35,9 @@ authRouter.post("/register", asyncHandler(async (req, res) => {
   return res.status(400).json({ ok: false, error: "telefone ou nif é obrigatório" });
 }
 
-  // 1) Vendus: cria ou encontra cliente
   const r = await clients.createIfNotExists({ nome, email, telefone, nif });
   const vendusClientId = r.clientId;
 
-  // 2) Supabase: cria user + guarda link
   const acc = await accounts().createUserAndLink({
     email,
     password,

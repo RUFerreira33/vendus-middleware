@@ -53,7 +53,6 @@ export class ClientsService {
     };
   }
 
-  // ✅ extrai code/message do erro exatamente como a VendusClient está a mandar (details.response.errors[0])
   private getVendusErrorInfo(e: any): { status?: number; code?: string; message?: string } {
     const status = e?.status ?? e?.statusCode ?? e?.response?.status;
     const code = e?.details?.response?.errors?.[0]?.code ?? e?.details?.errors?.[0]?.code;
@@ -68,18 +67,15 @@ export class ClientsService {
     } catch (e: any) {
       const info = this.getVendusErrorInfo(e);
 
-      // ✅ ESTE É O TEU CASO: 404 + A001 + "No data" => significa "0 resultados"
       if (info.status === 404 && info.code === "A001" && info.message === "No data") {
         return [];
       }
 
-      // qualquer outro erro é real
       throw e;
     }
   }
 
   async createIfNotExists(input: { nome: string; email?: string; telefone?: string; nif?: string }) {
-    // 🔥 marcador para confirmares nos logs que esta versão está ativa
     console.log("[ClientsService] createIfNotExists v3 (A001->[])");
 
     const nome = (input.nome ?? "").trim();
@@ -90,7 +86,6 @@ export class ClientsService {
     if (!nome) throw new ApiError(400, "Campo 'nome' é obrigatório.");
     if (!telefone && !nif) throw new ApiError(400, "Campo 'telefone' ou 'nif' é obrigatório.");
 
-    // 1) procurar existentes
     let candidates: VendusClientType[] = [];
     if (nif) {
       candidates = await this.fetchCandidates(`/clients/?fiscal_id=${encodeURIComponent(nif)}`);
@@ -104,7 +99,6 @@ export class ClientsService {
 
     if (existing?.id) return { clientId: existing.id, created: false };
 
-    // 2) criar
     const payload: Record<string, string> = {
       name: nome,
       country: "PT",

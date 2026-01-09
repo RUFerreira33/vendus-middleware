@@ -22,7 +22,6 @@ export class AccountsService {
   private async getUserByEmail(email: string) {
     const admin = this.admin();
 
-    // supabase-js v2 admin: listUsers é paginado; usamos o filter por email
     const { data, error } = await admin.auth.admin.listUsers({
       page: 1,
       perPage: 200
@@ -42,7 +41,6 @@ export class AccountsService {
     const admin = this.admin();
     const { userId, email, vendusClientId } = params;
 
-    // 1) ver se já existe link
     const { data: existing, error: selErr } = await admin
       .from("customer_accounts")
       .select("user_id, vendus_client_id, email, tipo_utilizador")
@@ -52,7 +50,6 @@ export class AccountsService {
     if (selErr) throw new ApiError(400, "Erro a consultar customer_accounts", selErr);
 
     if (existing && existing.length > 0) {
-      // 2) se existir, atualiza (idempotente)
       const { error: updErr } = await admin
         .from("customer_accounts")
         .update({ vendus_client_id: vendusClientId, email, tipo_utilizador: 1 })
@@ -63,7 +60,6 @@ export class AccountsService {
       return { user_id: userId, vendus_client_id: vendusClientId, email, created_link: false };
     }
 
-    // 3) se não existir, insere
     const { error: insErr } = await admin
       .from("customer_accounts")
       .insert({ user_id: userId, vendus_client_id: vendusClientId, email, tipo_utilizador: 1 });

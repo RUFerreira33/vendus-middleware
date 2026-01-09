@@ -2,8 +2,8 @@ import { VendusClient } from "./vendusClient.js";
 import { ApiError } from "../errors.js";
 
 type VendusImages = {
-  xs?: string; // ex: "/foto/xxx_xs.png"
-  m?: string;  // ex: "/foto/xxx_m.png"
+  xs?: string;
+  m?: string; 
 };
 
 type VendusVariant = {
@@ -19,13 +19,10 @@ type VendusProduct = {
   price_without_tax?: number | string;
   stock?: number | string;
 
-  // ✅ Vendus API (mais comum)
   images?: VendusImages;
 
-  // ✅ às vezes há variantes com imagens
   variants?: VendusVariant[];
 
-  // 🔁 fallback (se algum endpoint/conta devolver campos antigos)
   image_url?: string;
   image?: string;
   photo_url?: string;
@@ -37,22 +34,18 @@ function toFullVendusUrl(path?: string): string {
   const s = String(path).trim();
   if (!s) return "";
   if (s.startsWith("http://") || s.startsWith("https://")) return s;
-  // Vendus costuma devolver "/foto/....png"
   if (s.startsWith("/")) return `https://www.vendus.pt${s}`;
   return `https://www.vendus.pt/${s}`;
 }
 
 function pickImageUrl(p: VendusProduct): string {
-  // 1) imagem no próprio produto (preferir "m", depois "xs")
   const direct = p?.images?.m || p?.images?.xs;
   if (direct) return toFullVendusUrl(direct);
 
-  // 2) imagem na primeira variante
   const v0 = p?.variants?.[0];
   const viaVariant = v0?.images?.m || v0?.images?.xs;
   if (viaVariant) return toFullVendusUrl(viaVariant);
 
-  // 3) fallback para campos antigos
   const legacy =
     p.image_url ||
     p.photo_url ||

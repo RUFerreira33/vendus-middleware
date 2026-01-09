@@ -48,7 +48,6 @@ export class VendusClient {
       );
     }
 
-    // se vier vazio, devolve null (evita crash)
     return (j as T) ?? (null as T);
   }
 

@@ -6,7 +6,6 @@ import { asyncHandler } from "../middlewares/asyncHandler.js";
 export const ordersRouter = Router();
 const service = new OrdersService();
 
-// GET /orders -> lista encomendas (documents type=EC)
 ordersRouter.get(
   "/",
   asyncHandler(async (req, res) => {
