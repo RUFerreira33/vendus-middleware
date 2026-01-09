@@ -125,7 +125,6 @@ ordersRouter.get(
  * ==============================
  *  PENDENTES (SUPABASE) - FILA
  * ==============================
- *
  * Estas rotas têm de vir ANTES do "/:id"
  */
 
@@ -147,7 +146,7 @@ ordersRouter.get(
       return res.status(502).json({ ok: false, error: "Erro Supabase", details: error.message });
     }
 
-    return res.json({ ok: true, orders or ders: data ?? [] });
+    return res.json({ ok: true, orders: data ?? [] });
   })
 );
 
@@ -174,6 +173,7 @@ ordersRouter.post(
     if (e1) {
       return res.status(502).json({ ok: false, error: "Erro Supabase", details: e1.message });
     }
+
     if (!pending) {
       return res.status(404).json({ ok: false, error: "Pedido pendente não encontrado" });
     }
@@ -226,6 +226,7 @@ ordersRouter.post(
     if (e1) {
       return res.status(502).json({ ok: false, error: "Erro Supabase", details: e1.message });
     }
+
     if (!pending) {
       return res.status(404).json({ ok: false, error: "Pedido pendente não encontrado" });
     }
@@ -297,6 +298,7 @@ ordersRouter.post(
 
     const input = req.body;
 
+    // validações mínimas
     if (!input?.register_id) {
       return res.status(400).json({ ok: false, error: "Campo 'register_id' é obrigatório." });
     }
