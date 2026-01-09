@@ -108,7 +108,7 @@ export class OrdersService {
       const payload: any = {
         type: "EC", 
         register_id: input.register_id,
-        client_id: clientId,
+        client: { id: clientId },
         items: input.items.map((it: any) => ({
           qty: it.qty, 
           id: it.id, 
