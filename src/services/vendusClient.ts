@@ -1,6 +1,6 @@
 import { getConfig } from "../config.js";
 import { ApiError } from "../errors.js";
-import fetch from "node-fetch";
+//import fetch from "node-fetch";
 
 
 function safeJson(text: string) {
