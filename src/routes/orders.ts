@@ -134,7 +134,7 @@ ordersRouter.get(
 ordersRouter.get(
   "/pending",
   asyncHandler(async (_req, res) => {
-    const admin = supabaseAdmin();
+    const admin = supabaseAdmin;
 
     const { data, error } = await admin
       .from("pending_orders")
@@ -159,7 +159,7 @@ ordersRouter.get(
 ordersRouter.post(
   "/pending/:id/accept",
   asyncHandler(async (req, res) => {
-    const admin = supabaseAdmin();
+    const admin = supabaseAdmin;
 
     const id = req.params.id;
     const acceptedBy = req.body?.accepted_by ?? "funcionario";
@@ -211,7 +211,7 @@ ordersRouter.post(
 ordersRouter.post(
   "/pending/:id/reject",
   asyncHandler(async (req, res) => {
-    const admin = supabaseAdmin();
+    const admin = supabaseAdmin;
 
     const id = req.params.id;
     const rejectedBy = req.body?.rejected_by ?? "funcionario";
@@ -312,7 +312,7 @@ ordersRouter.post(
       return res.status(400).json({ ok: false, error: "O campo 'items' é obrigatório e deve ser uma lista." });
     }
 
-    const admin = supabaseAdmin();
+    const admin = supabaseAdmin;
 
     const { data, error } = await admin
       .from("pending_orders")
