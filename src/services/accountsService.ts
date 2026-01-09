@@ -16,7 +16,6 @@ export class AccountsService {
   }
 
   private isEmailExistsError(err: any) {
-    // supabase costuma devolver { status: 422, code: "email_exists" }
     return err?.code === "email_exists" || err?.status === 422;
   }
 
@@ -46,7 +45,7 @@ export class AccountsService {
     // 1) ver se já existe link
     const { data: existing, error: selErr } = await admin
       .from("customer_accounts")
-      .select("user_id, vendus_client_id, email")
+      .select("user_id, vendus_client_id, email, tipo_utilizador")
       .eq("user_id", userId)
       .limit(1);
 
@@ -56,7 +55,7 @@ export class AccountsService {
       // 2) se existir, atualiza (idempotente)
       const { error: updErr } = await admin
         .from("customer_accounts")
-        .update({ vendus_client_id: vendusClientId, email })
+        .update({ vendus_client_id: vendusClientId, email, tipo_utilizador: 1 })
         .eq("user_id", userId);
 
       if (updErr) throw new ApiError(400, "Erro a atualizar customer_accounts", updErr);
@@ -67,7 +66,7 @@ export class AccountsService {
     // 3) se não existir, insere
     const { error: insErr } = await admin
       .from("customer_accounts")
-      .insert({ user_id: userId, vendus_client_id: vendusClientId, email });
+      .insert({ user_id: userId, vendus_client_id: vendusClientId, email, tipo_utilizador: 1 });
 
     if (insErr) throw new ApiError(400, "Erro a inserir em customer_accounts", insErr);
 
@@ -91,7 +90,6 @@ export class AccountsService {
       email_confirm: true
     });
 
-    // ✅ Se já existe, não falha: faz link no user existente
     if (error && this.isEmailExistsError(error)) {
       const existingUser = await this.getUserByEmail(email);
       const link = await this.ensureCustomerAccountLink({
