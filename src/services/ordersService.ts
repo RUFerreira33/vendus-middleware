@@ -1,7 +1,7 @@
 import { VendusClient } from "./vendusClient.js";
 import { ApiError } from "../errors.js";
 
-type VendusDocListItem = {
+export type VendusDocListItem = {
   id: number;
   number?: string;
   date?: string;
@@ -14,14 +14,14 @@ type VendusDocListItem = {
   register_id?: number;
   external_reference?: string;
   client_id?: number;
-  client?: { 
+  client?: {
     id?: number;
-    name?: string;  
-    email?: string; 
+    name?: string;
+    email?: string;
   };
 };
 
-type CreateOrderInput = {
+export type CreateOrderInput = {
   register_id: number;
   client_id?: number;
   items: Array<{
@@ -60,8 +60,11 @@ export class OrdersService {
 
   async list(queryString: string) {
     console.log("Listando documentos com query:", queryString);
+
     const query = queryString
-      ? (queryString.startsWith("?") ? queryString : `?${queryString}`)
+      ? queryString.startsWith("?")
+        ? queryString
+        : `?${queryString}`
       : "";
 
     const rows = await this.vendus.get<VendusDocListItem[]>(`/documents${query}`);
@@ -81,49 +84,59 @@ export class OrdersService {
       external_reference: d.external_reference ?? "",
       client_id: d.client_id ?? d.client?.id ?? null,
       client_name: d.client?.name ?? "Consumidor Final",
-      client_email: d.client?.email ?? ""
+      client_email: d.client?.email ?? "",
     }));
   }
 
   async getById(id: string, queryString = "") {
     if (!id) throw new ApiError(400, "Missing id");
-    const qs = queryString ? (queryString.startsWith("?") ? queryString : `?${queryString}`) : "";
+
+    const qs = queryString
+      ? queryString.startsWith("?")
+        ? queryString
+        : `?${queryString}`
+      : "";
+
     return this.vendus.get<any>(`/documents/${encodeURIComponent(id)}${qs}`);
   }
 
+  /**
+   * Cria encomenda no Vendus (EC).
+   * ATENÇÃO: este método só deve ser chamado quando o funcionário ACEITA.
+   */
   async create(input: CreateOrderInput) {
     try {
-      console.log("--- NOVO PEDIDO RECEBIDO DO UIPATH ---");
+      console.log("--- NOVO PEDIDO (ACEITE) PARA CRIAR NO VENDUS ---");
       console.log("Payload de entrada:", JSON.stringify(input, null, 2));
 
       if (!input?.register_id) throw new ApiError(400, "Campo 'register_id' é obrigatório.");
-      
+
       const clientId = input.client_id ?? input.client?.id;
       if (!clientId) throw new ApiError(400, "Campo 'client_id' é obrigatório.");
 
-      if (!input.items || !Array.isArray(input.items)) {
+      if (!input.items || !Array.isArray(input.items) || input.items.length === 0) {
         throw new ApiError(400, "O campo 'items' é obrigatório e deve ser uma lista.");
       }
 
       const payload: any = {
-        type: "EC", 
+        type: "EC",
         register_id: input.register_id,
         client: { id: clientId },
         items: input.items.map((it: any) => ({
-          qty: it.qty, 
-          id: it.id, 
-          reference: it.reference, 
+          qty: it.qty,
+          id: it.id,
+          reference: it.reference,
           price: it.price,
-          discount: it.discount, 
-          tax_id: it.tax_id, 
-          notes: it.notes
+          discount: it.discount,
+          tax_id: it.tax_id,
+          notes: it.notes,
         })),
       };
 
       console.log("Enviando para Vendus API:", JSON.stringify(payload, null, 2));
 
       const created = await this.vendus.post<any>(`/documents`, payload);
-      
+
       if (!created) {
         console.error("Vendus API não devolveu resposta válida.");
         throw new ApiError(502, "Erro ao criar encomenda no Vendus.");
@@ -131,14 +144,15 @@ export class OrdersService {
 
       console.log("Sucesso! Documento criado com ID:", created.id);
       return created;
-
     } catch (error: any) {
       console.error("### ERRO INTERNO NO ORDERS SERVICE ###");
-      console.error("Mensagem:", error.message);
-      if (error.response) {
+      console.error("Mensagem:", error?.message);
+
+      if (error?.response) {
         console.error("Detalhes da API Vendus:", JSON.stringify(error.response.data, null, 2));
       }
-      throw error; 
+
+      throw error;
     }
   }
 }
