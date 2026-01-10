@@ -26,7 +26,6 @@ meRouter.get(
       return res.status(401).json({ ok: false, error: "Invalid token", details: userErr ?? undefined });
     }
 
-    // 2) ler ligação com SERVICE ROLE (não depende de RLS)
     const admin = supabaseAdmin;
 
     const { data, error } = await admin

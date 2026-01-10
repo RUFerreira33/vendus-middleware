@@ -191,14 +191,25 @@ ordersRouter.post(
       payload.items = payload.items.map((it: any) => {
         const rawQty = it.qty ?? it.quantity ?? it.qtd ?? 1;
         const qty = Number(rawQty);
+        const product_id =
+           it.product_id ?? it.productId ?? it.id ?? it.product?.id ?? null;
 
         return {
           ...it,
           qty: Number.isFinite(qty) && qty > 0 ? qty : 1,
+          product_id
         };
       });
-    }
 
+      const bad = payload.items.find((it: any) => !it.product_id);
+       if (bad) {
+         return res.status(400).json({
+      ok: false,
+         error: "Item sem product_id. Envia product_id (ou id) em todos os items.",
+            details: { item: bad }
+          });
+        }
+      }
     // cria no Vendus (AGORA SIM)
     const created = await service.create(payload);
 
