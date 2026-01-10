@@ -26,7 +26,7 @@ meRouter.get(
       return res.status(401).json({ ok: false, error: "Invalid token", details: userErr ?? undefined });
     }
 
-    const admin = supabaseAdmin();
+    const admin = supabaseAdmin;
 
     const { data, error } = await admin
       .from("customer_accounts")
