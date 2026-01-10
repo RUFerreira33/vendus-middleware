@@ -183,35 +183,35 @@ ordersRouter.post(
     }
 
     // payload pode vir como objeto ou como string json
-    const payload: any =
-      typeof pending.payload === "string" ? JSON.parse(pending.payload) : (pending.payload ?? {});
+const payload: any =
+  typeof pending.payload === "string" ? JSON.parse(pending.payload) : (pending.payload ?? {});
 
-    // garantir qty em todos os items (Vendus exige)
-    if (Array.isArray(payload.items)) {
-      payload.items = payload.items.map((it: any) => {
-        const rawQty = it.qty ?? it.quantity ?? it.qtd ?? 1;
-        const qty = Number(rawQty);
-        const product_id =
-           it.product_id ?? it.productId ?? it.id ?? it.product?.id ?? null;
+if (Array.isArray(payload.items)) {
+  payload.items = payload.items.map((it: any) => {
+    const rawQty = it.qty ?? it.quantity ?? it.qtd ?? 1;
+    const qty = Number(rawQty);
 
-        return {
-          ...it,
-          qty: Number.isFinite(qty) && qty > 0 ? qty : 1,
-          product_id
-        };
-      });
+    const product_id =
+      it.product_id ?? it.productId ?? it.id ?? it.product?.id ?? null;
 
-      const bad = payload.items.find((it: any) => !it.product_id);
-       if (bad) {
-         return res.status(400).json({
+    return {
+      ...it,
+      qty: Number.isFinite(qty) && qty > 0 ? qty : 1,
+      product_id
+    };
+  });
+
+  const bad = payload.items.find((it: any) => !it.product_id);
+  if (bad) {
+    return res.status(400).json({
       ok: false,
-         error: "Item sem product_id. Envia product_id (ou id) em todos os items.",
-            details: { item: bad }
-          });
-        }
-      }
-    // cria no Vendus (AGORA SIM)
-    const created = await service.create(payload);
+      error: "Item sem product_id.",
+      details: { item: bad }
+    });
+  }
+}
+
+const created = await service.create(payload);
 
     const { error: e2 } = await admin
       .from("pending_orders")
