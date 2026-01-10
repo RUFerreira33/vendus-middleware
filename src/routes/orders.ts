@@ -182,8 +182,25 @@ ordersRouter.post(
       return res.status(409).json({ ok: false, error: `Pedido já está em ${pending.status}` });
     }
 
-    // cria no Vendus
-    const created = await service.create(pending.payload);
+    // payload pode vir como objeto ou como string json
+    const payload: any =
+      typeof pending.payload === "string" ? JSON.parse(pending.payload) : (pending.payload ?? {});
+
+    // garantir qty em todos os items (Vendus exige)
+    if (Array.isArray(payload.items)) {
+      payload.items = payload.items.map((it: any) => {
+        const rawQty = it.qty ?? it.quantity ?? it.qtd ?? 1;
+        const qty = Number(rawQty);
+
+        return {
+          ...it,
+          qty: Number.isFinite(qty) && qty > 0 ? qty : 1,
+        };
+      });
+    }
+
+    // cria no Vendus (AGORA SIM)
+    const created = await service.create(payload);
 
     const { error: e2 } = await admin
       .from("pending_orders")
