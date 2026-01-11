@@ -1,13 +1,14 @@
 import { ApiError } from "../errors.js";
 import { supabaseAdmin } from "./supabaseAdmin.js";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 type CreateParams = { email: string; password: string; vendusClientId: number };
 
 export class AccountsService {
-  private _admin: ReturnType<typeof supabaseAdmin> | null = null;
+  private _admin: SupabaseClient | null = null;
 
   private admin() {
-    if (!this._admin) this._admin = supabaseAdmin;
+    if (!this._admin) this._admin = supabaseAdmin; // ✅ sem ()
     return this._admin;
   }
 
@@ -16,28 +17,36 @@ export class AccountsService {
   }
 
   private isEmailExistsError(err: any) {
+    // supabase costuma devolver 422 + code email_exists (ou msg "User already registered")
     return err?.code === "email_exists" || err?.status === 422;
   }
 
   private async getUserByEmail(email: string) {
     const admin = this.admin();
 
+    // Nota: listUsers é paginado; aqui vai só à 1ª página (200)
     const { data, error } = await admin.auth.admin.listUsers({
       page: 1,
-      perPage: 200
+      perPage: 200,
     });
 
     if (error) {
       throw new ApiError(400, "Erro a listar utilizadores no Supabase", error);
     }
 
-    const user = data?.users?.find(u => (u.email || "").toLowerCase() === email);
-    if (!user) throw new ApiError(404, "Utilizador já existe mas não foi encontrado pelo admin", { email });
+    const user = data?.users?.find((u) => (u.email || "").toLowerCase() === email);
+    if (!user) {
+      throw new ApiError(404, "Utilizador já existe mas não foi encontrado pelo admin", { email });
+    }
 
     return user;
   }
 
-  private async ensureCustomerAccountLink(params: { userId: string; email: string; vendusClientId: number }) {
+  private async ensureCustomerAccountLink(params: {
+    userId: string;
+    email: string;
+    vendusClientId: number;
+  }) {
     const admin = this.admin();
     const { userId, email, vendusClientId } = params;
 
@@ -49,6 +58,7 @@ export class AccountsService {
 
     if (selErr) throw new ApiError(400, "Erro a consultar customer_accounts", selErr);
 
+    // se já existe link → update idempotente
     if (existing && existing.length > 0) {
       const { error: updErr } = await admin
         .from("customer_accounts")
@@ -60,9 +70,10 @@ export class AccountsService {
       return { user_id: userId, vendus_client_id: vendusClientId, email, created_link: false };
     }
 
+    // se não existe → insert
     const { error: insErr } = await admin
       .from("customer_accounts")
-      .insert({ user_id: userId, vendus_client_id: vendusClientId, email, tipo_utilizador: 1 });
+      .insert([{ user_id: userId, vendus_client_id: vendusClientId, email, tipo_utilizador: 1 }]);
 
     if (insErr) throw new ApiError(400, "Erro a inserir em customer_accounts", insErr);
 
@@ -83,15 +94,16 @@ export class AccountsService {
     const { data, error } = await admin.auth.admin.createUser({
       email,
       password,
-      email_confirm: true
+      email_confirm: true,
     });
 
+    // Se email já existe → obtém user e garante link em customer_accounts
     if (error && this.isEmailExistsError(error)) {
       const existingUser = await this.getUserByEmail(email);
       const link = await this.ensureCustomerAccountLink({
         userId: existingUser.id,
         email,
-        vendusClientId
+        vendusClientId,
       });
 
       return { ...link, existed_user: true };
@@ -106,7 +118,7 @@ export class AccountsService {
     const link = await this.ensureCustomerAccountLink({
       userId,
       email,
-      vendusClientId
+      vendusClientId,
     });
 
     return { ...link, existed_user: false };
