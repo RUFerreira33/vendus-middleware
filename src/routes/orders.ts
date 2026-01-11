@@ -14,7 +14,7 @@ function calcAmountGross(input: any): number | null {
   let found = false;
 
   for (const it of input.items) {
-    const qty = Number(it.quantity ?? it.qty ?? 1);
+    const qty = Number(it.qty ?? it.quantity ?? it.qtd ?? 1);
     const price = Number(it.gross_price ?? it.price_gross ?? it.price ?? it.unit_price ?? 0);
 
     if (Number.isFinite(qty) && Number.isFinite(price)) {
@@ -24,6 +24,45 @@ function calcAmountGross(input: any): number | null {
   }
 
   return found ? total : null;
+}
+
+function normalizePayloadForVendusDocuments(raw: any) {
+  // payload pode vir como objeto ou string json
+  const payload: any =
+    typeof raw === "string" ? JSON.parse(raw) : (raw ?? {});
+
+  if (!Array.isArray(payload.items) || payload.items.length === 0) {
+    throw new Error("Payload inválido: items em falta");
+  }
+
+  payload.items = payload.items.map((it: any) => {
+    const rawQty = it.qty ?? it.quantity ?? it.qtd ?? 1;
+    const qty = Number(rawQty);
+
+    // Vendus documents usa "id" do produto (não product_id)
+    const productId =
+      it.id ?? it.product_id ?? it.productId ?? it.product?.id ?? null;
+
+    return {
+      ...it,
+      qty: Number.isFinite(qty) && qty > 0 ? qty : 1,
+      id: productId, // ✅ chave principal para Vendus documents
+      // limpar campos que confundem
+      product_id: undefined,
+      productId: undefined,
+      quantity: undefined,
+      qtd: undefined,
+    };
+  });
+
+  const bad = payload.items.find((it: any) => !it.id);
+  if (bad) {
+    const err: any = new Error("Item sem id/product_id");
+    err.details = bad;
+    throw err;
+  }
+
+  return payload;
 }
 
 /**
@@ -125,7 +164,6 @@ ordersRouter.get(
  * ==============================
  *  PENDENTES (SUPABASE) - FILA
  * ==============================
- * Estas rotas têm de vir ANTES do "/:id"
  */
 
 /**
@@ -173,46 +211,28 @@ ordersRouter.post(
     if (e1) {
       return res.status(502).json({ ok: false, error: "Erro Supabase", details: e1.message });
     }
-
     if (!pending) {
       return res.status(404).json({ ok: false, error: "Pedido pendente não encontrado" });
     }
-
     if (pending.status !== "PENDING") {
       return res.status(409).json({ ok: false, error: `Pedido já está em ${pending.status}` });
     }
 
-    // payload pode vir como objeto ou como string json
-const payload: any =
-  typeof pending.payload === "string" ? JSON.parse(pending.payload) : (pending.payload ?? {});
+    let payload: any;
+    try {
+      payload = normalizePayloadForVendusDocuments(pending.payload);
+    } catch (err: any) {
+      return res.status(400).json({
+        ok: false,
+        error: err?.message ?? "Payload inválido",
+        details: err?.details ?? undefined,
+      });
+    }
 
-if (Array.isArray(payload.items)) {
-  payload.items = payload.items.map((it: any) => {
-    const rawQty = it.qty ?? it.quantity ?? it.qtd ?? 1;
-    const qty = Number(rawQty);
+    // cria no Vendus
+    const created = await service.create(payload);
 
-    const product_id =
-      it.product_id ?? it.productId ?? it.id ?? it.product?.id ?? null;
-
-    return {
-      ...it,
-      qty: Number.isFinite(qty) && qty > 0 ? qty : 1,
-      product_id
-    };
-  });
-
-  const bad = payload.items.find((it: any) => !it.product_id);
-  if (bad) {
-    return res.status(400).json({
-      ok: false,
-      error: "Item sem product_id.",
-      details: { item: bad }
-    });
-  }
-}
-
-const created = await service.create(payload);
-
+    // marca ACCEPTED
     const { error: e2 } = await admin
       .from("pending_orders")
       .update({
@@ -254,11 +274,9 @@ ordersRouter.post(
     if (e1) {
       return res.status(502).json({ ok: false, error: "Erro Supabase", details: e1.message });
     }
-
     if (!pending) {
       return res.status(404).json({ ok: false, error: "Pedido pendente não encontrado" });
     }
-
     if (pending.status !== "PENDING") {
       return res.status(409).json({ ok: false, error: `Pedido já está em ${pending.status}` });
     }
