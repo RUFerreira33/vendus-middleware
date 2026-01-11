@@ -7,7 +7,7 @@ export class AccountsService {
   private _admin: ReturnType<typeof supabaseAdmin> | null = null;
 
   private admin() {
-    if (!this._admin) this._admin = supabaseAdmin();
+    if (!this._admin) this._admin = supabaseAdmin;
     return this._admin;
   }
 
